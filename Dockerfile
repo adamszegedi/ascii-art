@@ -1,5 +1,5 @@
 # 1. Start from the smallest reliable base
-FROM alpine:latest
+FROM quay.io/fedora/fedora-minimal:latest
 
 ARG UID=1000
 ARG GID=1000
@@ -7,7 +7,7 @@ ARG UNAME="ascii"
 
 # 2. Add community/testing repos and install all tools in one layer
 # --no-cache avoids storing the index, saving more space
-RUN apk add --no-cache \
+RUN dnf install -y \
         shadow \
         bash \
         cowsay \
@@ -18,8 +18,8 @@ RUN apk add --no-cache \
         sl \
         lolcat && \
     # Create the user and group
-    addgroup -g $GID $UNAME && \
-    adduser -u $UID -G $UNAME -s /bin/bash -D $UNAME
+    groupadd -g "$GID" "$UNAME" && \
+    useradd -u "$UID" -g "$GID" -s /bin/bash "$UNAME"
 
 USER $UNAME
 WORKDIR /home/$UNAME
