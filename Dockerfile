@@ -1,30 +1,32 @@
-# 1. Start from a tiny, glibc-compatible base (~30MB)
-FROM debian:bookworm-slim
+# 1. Start from the smallest reliable base
+FROM quay.io/fedora/fedora-minimal:latest
 
 ARG UID=1000
 ARG GID=1000
 ARG UNAME="ascii"
 
-# 2. Install tools and clean up the apt cache in ONE layer
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# 2. Install all tools and completely purge DNF cache in the same layer
+RUN dnf install -y \
+        shadow \
         bash \
         cowsay \
-        fortune-mod \
+        fortune \
         figlet \
         nyancat \
         asciiquarium \
         sl \
         lolcat && \
-    # Clean up apt package lists to save massive amounts of space
-    rm -rf /var/lib/apt/lists/* && \
-    # Create the user and group (shadow utils are built-in here)
+    # CRITICAL: This removes all repository metadata and temporary download logs
+    dnf clean all && \
+    rm -rf /var/cache/dnf && \
+    # Create the user and group
     groupadd -g "$GID" "$UNAME" && \
-    useradd -u "$UID" -g "$GID" -m -s /bin/bash "$UNAME"
+    useradd -u "$UID" -g "$GID" -s /bin/bash "$UNAME"
 
 USER $UNAME
 WORKDIR /home/$UNAME
 
-# 3. Use heredoc to create the .bashrc (Debian paths for fortune/cowsay)
+# 3. Use heredoc to create the .bashrc
 RUN <<EOF cat >> .bashrc
 function greet() {
     echo -e "Welcome to the ASCII Art Party! 🎉"
@@ -37,16 +39,14 @@ function greet() {
     echo -e "   🐱 nyancat - The famous pop-tart cat flying across your screen."
     echo -e "   🍀 fortune - Displays random fortune cookie messages."
     echo -e "Try them out with commands like:"
-    echo -e "   /usr/games/cowsay 'Hello, World!'"
-    echo -e "   /usr/games/fortune | /usr/games/cowsay | lolcat"
+    echo -e "   cowsay 'Hello, World!'"
+    echo -e "   fortune | cowsay | lolcat"
     echo -e "   asciiquarium"
     echo -e "   nyancat"
     echo -e "Have fun with your ASCII art! 🎨"
 }
 greet
 export PS1='$: '
-# Add games to path since Debian installs cowsay/fortune to /usr/games
-export PATH=\$PATH:/usr/games
 EOF
 
 CMD ["/bin/bash"]
